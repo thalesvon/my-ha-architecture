@@ -1,0 +1,41 @@
+---
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: "This is the network stack template for my-ha-architecture. Resource defined on this template:
+VPC, Subnets, Route tables, Internet Gateway, Nat Gateways and Load Balancers"
+
+Parameters:
+  EnvironmentName:
+    Type: String
+    Description: 'Environment name passed from parent stack'
+
+Mappings: 
+  AddressConfig:
+    Vpc:
+      CIDR: "10.0.0.0/16"
+    PublicSubnet-101:
+      CIDR: "10.0.101.0/24"
+    PublicSubnet-102:
+      CIDR: "10.0.102.0/24"
+    PublicSubnet-103:
+      CIDR: "10.0.103.0/24"
+    PrivateSubnet-1:
+      CIDR: "10.0.1.0/24"
+    PrivateSubnet-2:
+      CIDR: "10.0.2.0/24"
+    PrivateSubnet-3:
+      CIDR: "10.0.3.0/24"
+
+Resources:
+  VpcHA:
+    Type: AWS::EC2::VPC
+    Properties:
+      EnableDnsSupport: true
+      CidrBlock: !FindInMap [ AddressConfig, Vpc, CIDR]
+
+Outputs:
+  VpcHA:
+    Description: Created VPC id
+    Value: !Ref VpcHA
+    Export:
+      Name: VPC-ID

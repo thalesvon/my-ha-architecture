@@ -1,0 +1,43 @@
+---
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description:
+  This is the parent stack template for my-ha-architecture
+
+Metadata:
+  template metadata
+
+Parameters:
+  templates-bucket:
+    Type: String
+    Description: "This is the URL for the S3 bucket where the my-ha-architecture templates are stored."
+  environment-name:
+    Type: Srting
+    Default: dev
+    AllowedValues: ["prod", "dev"]
+    Description: "Sets the environment."
+    ConstraintDescription: "must specify prod or dev."
+
+Mappings:
+  set of mappings
+
+Conditions:
+  set of conditions
+
+Transform:
+  set of transforms
+
+Resources:
+  network-stack:
+    Type: "AWS::CloudFormation::Stack"
+    Properties:
+      Parameters:
+        Map
+      Tags:
+        - Key: environment
+          Value: !Ref environment-name
+      TemplateURL: !Join [ /, [ !Ref templates-bucket, "network.yml" ] ]
+  
+
+Outputs:
+  set of outputs
