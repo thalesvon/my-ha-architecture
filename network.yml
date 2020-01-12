@@ -5,9 +5,11 @@ Description: "This is the network stack template for my-ha-architecture. Resourc
 VPC, Subnets, Route tables, Internet Gateway, Nat Gateways and Load Balancers"
 
 Parameters:
-  EnvironmentName:
+  Environment:
     Type: String
-    Description: 'Environment name passed from parent stack'
+    AllowedValues: ["prod", "dev"]
+    Description: "Sets the environment."
+    ConstraintDescription: "must specify prod or dev."
 
 Mappings: 
   AddressConfig:
@@ -32,6 +34,10 @@ Resources:
     Properties:
       EnableDnsSupport: true
       CidrBlock: !FindInMap [ AddressConfig, Vpc, CIDR]
+      Tags:
+        -
+          Key: Name
+          Value: !Join [ _ ,[ !Ref Environment, vpc]]
 
 Outputs:
   VpcHA:
