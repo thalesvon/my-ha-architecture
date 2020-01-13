@@ -8,7 +8,7 @@ if [ $? -ne 0 ];then
     aws s3 mb s3://${PROJECT}
 fi
 
-aws s3 sync . s3://${PROJECT} --exclude helper.sh --exclude ".git/*"
+aws s3 sync . s3://${PROJECT} --exclude helper.sh --exclude ".git/*" --exclude "README.md"
 
 aws cloudformation describe-stacks --stack-name ${PROJECT} &> /dev/null
 if [ $? -ne 0 ];then
