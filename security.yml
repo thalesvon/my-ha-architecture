@@ -1,14 +1,18 @@
 ---
 AWSTemplateFormatVersion: "2010-09-09"
-Description: ---
-Metadata: 
+Description: "This is the security stack template for my-ha-architecture. Resource defined on this template: IamRoles, WAFs" 
 
-Parameters: 
+Parameters:
+  Environment:
+    Type: String
+    AllowedValues: ["prod", "dev"]
+    Description: "Sets the environment."
+    ConstraintDescription: "must specify prod or dev."
+  DomainNameForCertificate:
+    Type: String
+    Default: "*.cirrus.com"
+    Description: "FQDN in certificate request."
 
-Mappings: 
-
-Conditions: 
-
-Resources: 
-
+Resources:
+  
 Outputs:
