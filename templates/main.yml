@@ -33,16 +33,34 @@ Resources:
       Parameters:
         Environment: !Ref EnvironmentName
       TemplateURL: !Join [ /, [ "https://s3.amazonaws.com", !Ref TemplatesBucket, "network.yml" ] ]
+  ComputeStack:
+    DependsOn: NetworkStack
+    Type: "AWS::CloudFormation::Stack"
+    Properties:
+      Tags:
+        - 
+          Key: project
+          Value: !Ref ProjectName
+        -
+          Key: environment
+          Value: !Ref EnvironmentName
+      Parameters:
+        Environment: !Ref EnvironmentName
+        VpcId: !GetAtt NetworkStack.Outputs.VpcHA
+        PublicSubnet101Id: !GetAtt NetworkStack.Outputs.PublicSubnet101
+        PublicSubnet102Id: !GetAtt NetworkStack.Outputs.PublicSubnet102
+        PublicSubnet103Id: !GetAtt NetworkStack.Outputs.PublicSubnet103
+      TemplateURL: !Join [ /, [ "https://s3.amazonaws.com", !Ref TemplatesBucket, "compute.yml" ] ]
   
 Outputs:
   NetworkStack:
     Description: ARN of network nested Stack
     Value: !Ref NetworkStack
     Export:
-      Name: Network-Stack-Id
-  SecurityStack:
-    Description: ARN of security nested Stack
-    Value: Not available #!Ref SecurityStack
+      Name: NETWORK-STACK-ID
+  ComputeStack:
+    Description: ARN of compute nested Stack
+    Value: !Ref ComputeStack
     Export:
-      Name: Security-Stack-Id
+      Name: SECURITY-STACK-ID
 

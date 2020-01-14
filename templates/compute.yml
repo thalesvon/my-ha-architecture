@@ -1,14 +1,202 @@
 ---
 AWSTemplateFormatVersion: "2010-09-09"
-Description: ---
-Metadata: 
+Description: "This is the compute stack template for my-ha-architecture. Resource defined on this template:
+ECS Cluster/Services/Task, Load Balancers and Target Groups."
 
 Parameters: 
+  Environment:
+    Type: String
+    AllowedValues: ["prod", "dev"]
+    Description: "Sets the environment."
+    ConstraintDescription: "must specify prod or dev."
+  VpcId:
+    Type: String
+    Description: "VPC from child network stack"
+  PublicSubnet101Id:
+    Type: String
+    Description : "must be a public subnet Id"
+  PublicSubnet102Id:
+    Type: String
+    Description : "must be a public subnet Id"
+  PublicSubnet103Id:
+    Type: String
+    Description : "must be a public subnet Id"
+  AlbSgName:
+    Type: String
+    Default: alb-sg
+    Description: "Sets the environment."
+    ConstraintDescription: "must specify prod or dev."
+  ApiServiceCount:
+    Type: Number
+    Default: 3
+    Description: Number of desired running tasks of ApiService
+  ApiServiceContainerPort:
+    Type: Number
+    Default: 8080
+    Description: This is the exposed port on the ApiService Container
+  ApiServiceContainerName:
+    Type: String
+    Default: api-service
+    Description: This is the name of the ApiService Container
 
-Mappings: 
+Conditions:
+  CreateProdResources: !Equals [ !Ref Environment, prod ]
+  CreateDevResources: !Equals [ !Ref Environment, dev ]
 
-Conditions: 
-
-Resources: 
+Resources:
+  AppLoadBalancer:
+    Type: "AWS::ElasticLoadBalancingV2::LoadBalancer"
+    Condition: CreateDevResources
+    DependsOn: AlbSg
+    Properties:
+      IpAddressType: ipv4
+      LoadBalancerAttributes:
+        - Key: access_logs.s3.enabled
+          Value: false
+        - Key: deletion_protection.enabled
+          Value: false
+        - Key: idle_timeout.timeout_seconds
+          Value: 60
+        - Key: routing.http.drop_invalid_header_fields.enabled
+          Value: false
+        - Key: routing.http2.enabled
+          Value: true
+      Name: !Join [ "-" , [ !Ref Environment, "alb "]]
+      Scheme: internet-facing
+      SecurityGroups: 
+        - !Ref AlbSg
+      Subnets:
+        - !Ref PublicSubnet101Id
+        - !Ref PublicSubnet102Id
+        - !Ref PublicSubnet103Id
+      Type: application
+  AlbSg:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Join [ "-" , [ !Ref Environment, !Ref AlbSgName ]]
+      GroupDescription: Security group attached to ALB
+      VpcId: !Ref VpcId 
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+          Description: https inbound from internet
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+          Description: http inbound from internet
+      SecurityGroupEgress:
+        - IpProtocol: tcp  
+          CidrIp: 10.0.0.0/16
+          Description: range of ports for outbound to back-end services, only to vpc
+          FromPort: 8000
+          ToPort: 9000
+      Tags:
+        -
+          Key: Name
+          Value: !Join [ "-" ,[ !Ref Environment, !Ref AlbSgName ]]
+  AlbHTTPListener:
+    Type: "AWS::ElasticLoadBalancingV2::Listener"
+    Properties:
+      DefaultActions:
+        - 
+          FixedResponseConfig:
+            ContentType: text/html
+            MessageBody: "<h2>Ok you hit the alb</h2>"
+            StatusCode: "200"
+          Type: fixed-response
+      LoadBalancerArn: !Ref AppLoadBalancer
+      Port: 80
+      Protocol: HTTP
+  EcsCluster:
+    Type: "AWS::ECS::Cluster"
+    Properties:
+      ClusterName: !Sub "${Environment}-cluster"
+  ApiService:
+    DependsOn: EcsCluster
+    Type: "AWS::ECS::Service"
+    Properties:
+      Cluster: !Ref EcsCluster
+      DeploymentConfiguration:
+        MaximumPercent: 200
+        MinimumHealthyPercent: 100
+      DeploymentController:
+        Type: ECS
+      DesiredCount: !Ref ApiServiceCount
+      EnableECSManagedTags: true
+      HealthCheckGracePeriodSeconds: 120
+      LaunchType: EC2
+      LoadBalancers:
+        - 
+          ContainerName: !Ref ApiServiceContainerName
+          ContainerPort: !Ref ApiServiceContainerPort
+          LoadBalancerName: !GetAtt AppLoadBalancer.LoadBalancerName
+          TargetGroupArn: !Ref ApiServiceTargetGroup
+      PlacementStrategies:
+        - Field: attribute:ecs.availability-zone
+          Type: spread
+        - Field: memory
+          Type: binpack
+      Role: String
+      SchedulingStrategy: REPLICA
+      ServiceName: !Join [ "-" , [!Ref Environment, !Ref ApiServiceContainerName ]]
+  ApiServiceTargetGroup:
+    Type: "AWS::ElasticLoadBalancingV2::TargetGroup"
+    Properties:
+      HealthCheckEnabled: true
+      HealthCheckIntervalSeconds: 30
+      HealthCheckPath: "/"
+      HealthCheckPort: !Ref ApiServiceContainerPort
+      HealthCheckProtocol: HTTP
+      HealthCheckTimeoutSeconds: 10
+      HealthyThresholdCount: 5
+      Matcher:
+        HttpCode: "200"
+      Name: !Join [ "-" , [ !Ref Environment , !Ref ApiServiceContainerName , "tg" ]]
+      Port: !Ref ApiServiceContainerPort
+      Protocol: HTTP
+      TargetGroupAttributes:
+        - Key: deregistration_delay.timeout_seconds
+          Value: 300
+        - Key: load_balancing.algorithm.type
+          Value: "round_robin"
+        - Key: slow_start.duration_seconds
+          Value: 30
+        - Key: stickiness.enabled
+          Value: false
+        - Key: stickiness.type
+          Value: lb_cookie
+        - Key: stickiness.lb_cookie.duration_seconds
+          Value: 86400 
+      TargetType: instance
+      UnhealthyThresholdCount: 5
+      VpcId: !Ref VpcId
 
 Outputs:
+  ALB:
+    Description: Application Load Balancer
+    Value: !GetAtt AppLoadBalancer.LoadBalancerName
+    Export:
+      Name: ALB-NAME
+  AlbSg:
+    Description: Application Load Balancer SG
+    Value: !Join [ "-" , [ !Ref Environment, !Ref AlbSg]]
+    Export:
+      Name: ALB-SG
+  EcsCluster:
+      Description: ECS Cluster
+      Value: !Ref EcsCluster
+      Export:
+        Name: ECS-CLUSTER-NAME
+  ApiService:
+      Description: Api Service
+      Value: !Ref ApiService
+      Export:
+        Name: API-SERVICE
+  ApiServiceTargetGroup:
+      Description: Api Service target group
+      Value: !Ref ApiServiceTargetGroup
+      Export:
+        Name: API-SERVICE-TARGET-GROUP
