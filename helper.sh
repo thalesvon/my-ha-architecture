@@ -14,14 +14,13 @@ aws cloudformation describe-stacks --stack-name ${PROJECT} &> /dev/null
 if [ $? -ne 0 ];then
     echo 'Stack does not exist, create will be executed...'
     aws cloudformation create-stack --stack-name ${PROJECT} \
-                                    --capabilities CAPABILITY_IAM \
+                                    --capabilities CAPABILITY_NAMED_IAM \
                                     --template-body file://templates/main.yml \
                                     --parameters ParameterKey=TemplatesBucket,ParameterValue=${PROJECT} ParameterKey=ProjectName,ParameterValue=${PROJECT}
 else
     echo 'Stack exists, update will be executed...'
     aws cloudformation update-stack --stack-name ${PROJECT} \
-                                    --capabilities CAPABILITY_IAM \
+                                    --capabilities CAPABILITY_NAMED_IAM \
                                     --template-body file://templates/main.yml \
-                                    --parameters ParameterKey=TemplatesBucket,ParameterValue=${PROJECT} ParameterKey=ProjectName,ParameterValue=${PROJECT}
-                                    
+                                    --parameters ParameterKey=TemplatesBucket,ParameterValue=${PROJECT} ParameterKey=ProjectName,ParameterValue=${PROJECT}  
 fi
