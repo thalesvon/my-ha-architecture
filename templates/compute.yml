@@ -21,6 +21,15 @@ Parameters:
   PublicSubnet103Id:
     Type: String
     Description : "must be a public subnet Id"
+  EcsTaskExecutionRole:
+    Type: String
+    Description : "Task Execution Role"
+  EcsTaskRole:
+    Type: String
+    Description : "Task Role"
+  EcsServiceRole:
+    Type: String
+    Description : "Service Role"
   AlbSgName:
     Type: String
     Default: alb-sg
@@ -38,6 +47,10 @@ Parameters:
     Type: String
     Default: api-service
     Description: This is the name of the ApiService Container
+  ApiServiceMemory:
+    Type: String
+    Default: "2048"
+    Description: The amount of memory used by task
 
 Conditions:
   CreateProdResources: !Equals [ !Ref Environment, prod ]
@@ -61,7 +74,7 @@ Resources:
           Value: false
         - Key: routing.http2.enabled
           Value: true
-      Name: !Join [ "-" , [ !Ref Environment, "alb "]]
+      Name: !Join [ "-" , [ !Ref Environment, "alb"]]
       Scheme: internet-facing
       SecurityGroups: 
         - !Ref AlbSg
@@ -139,9 +152,22 @@ Resources:
           Type: spread
         - Field: memory
           Type: binpack
-      Role: String
+      Role: !Ref EcsServiceRole
       SchedulingStrategy: REPLICA
       ServiceName: !Join [ "-" , [!Ref Environment, !Ref ApiServiceContainerName ]]
+      TaskDefinition: !Sub "${Environment}-${ApiServiceContainerName-td:1"
+      #TaskDefinition should be the same as Family:Revision
+  ApiServiceTaskDefinition:
+    Type: "AWS::ECS::TaskDefinition"
+    Properties:
+      ContainerDefinitions:
+        - ContainerDefinition
+      ExecutionRoleArn: !Ref EcsTaskExecutionRole
+      Family: !Join [ "-" , [!Ref Environment, !Ref ApiServiceContainerName , "td"]]
+      Memory: !Ref ApiServiceMemory
+      NetworkMode: bridge
+      PidMode: task
+      TaskRoleArn: !Ref EcsTaskRole
   ApiServiceTargetGroup:
     Type: "AWS::ElasticLoadBalancingV2::TargetGroup"
     Properties:

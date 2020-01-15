@@ -8,11 +8,94 @@ Parameters:
     AllowedValues: ["prod", "dev"]
     Description: "Sets the environment."
     ConstraintDescription: "must specify prod or dev."
-  DomainNameForCertificate:
+  EcsTaskExecutionPolicy:
     Type: String
-    Default: "*.cirrus.com"
-    Description: "FQDN in certificate request."
+    Default: "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
+    Description: "Provides access to other AWS service resources that are required to run Amazon ECS tasks"
+  EcsTaskPolicyName:
+    Type: String
+    Default: ecs-policy
+    Description: "Custom policy that allow task to interact with AWS Resources"
+  EcsTaskRoleName: 
+    Type: String
+    Default: ecs-task-role
+    Description: "ECS Execution Role"
+  EcsTaskExecutionRoleName: 
+    Type: String
+    Default: ecs-execution-role
+    Description: "ECS Execution Role"
+  EcsServiceRole:
+    Type: String
+    Default: "arn:aws:iam::358441290192:role/aws-service-role/ecs.amazonaws.com/AWSServiceRoleForECS"
+    Description: "Role to enable Amazon ECS to manage your cluster."
 
 Resources:
-  
+  EcsTaskPolicy:
+    Type: "AWS::IAM::Policy"
+    Properties:
+      PolicyDocument: 
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action: ['s3:List*', 's3:Get*', 's3:PutObject', 's3:DeleteObject']
+            Resource: "*"
+      PolicyName: !Join [ "-" , [!Ref Environment, !Ref EcsTaskPolicyName]]
+      Roles:
+        - !Ref EcsTaskRole
+  EcsTaskRole:
+    Type: AWS::IAM::Role
+    Properties: 
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          -
+            Effect: "Allow"
+            Principal:
+              Service:
+                - "ecs-tasks.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      Description: ECS Task Role
+      Path: "/service-role/"
+      RoleName: !Join [ "-" , [!Ref Environment, !Ref EcsTaskRoleName]]
+  EcsTaskExecutionRole:
+    Type: AWS::IAM::Role
+    Properties: 
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          -
+            Effect: "Allow"
+            Principal:
+              Service:
+                - "ecs.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      Description: ECS Execution Role
+      ManagedPolicyArns: 
+        - !Ref EcsTaskExecutionPolicy
+      Path: "/service-role/"
+      RoleName: !Join [ "-" , [!Ref Environment, !Ref EcsTaskExecutionRoleName]]
+
 Outputs:
+  EcsTaskExecutionRole:
+    Description: "Task execution role"
+    Value: !GetAtt EcsTaskExecutionRole.Arn
+    Export:
+      Name: ECS-TAKS-EXECUTION-ROLE
+  EcsServiceRole:
+    Description: "AWS Managed Role"
+    Value: !Ref EcsServiceRole
+    Export:
+      Name: ECS-TASK-EXECUTION-ROLE
+  EcsTaskRole:
+    Description: "Custom Role for tasks"
+    Value: !Ref EcsTaskRole
+    Export:
+      Name: ECS-TASK-ROLE
+  EcsTaskPolicy:
+    Description: "Custom Policy for tasks"
+    Value: !Ref EcsTaskPolicy
+    Export:
+      Name: ECS-TASK-POlICY
+    

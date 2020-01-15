@@ -33,6 +33,19 @@ Resources:
       Parameters:
         Environment: !Ref EnvironmentName
       TemplateURL: !Join [ /, [ "https://s3.amazonaws.com", !Ref TemplatesBucket, "network.yml" ] ]
+  SecurityStack:
+    Type: "AWS::CloudFormation::Stack"
+    Properties:
+      Tags:
+        - 
+          Key: project
+          Value: !Ref ProjectName
+        -
+          Key: environment
+          Value: !Ref EnvironmentName
+      Parameters:
+        Environment: !Ref EnvironmentName
+      TemplateURL: !Join [ /, [ "https://s3.amazonaws.com", !Ref TemplatesBucket, "security.yml" ] ]
   ComputeStack:
     DependsOn: NetworkStack
     Type: "AWS::CloudFormation::Stack"
@@ -50,6 +63,9 @@ Resources:
         PublicSubnet101Id: !GetAtt NetworkStack.Outputs.PublicSubnet101
         PublicSubnet102Id: !GetAtt NetworkStack.Outputs.PublicSubnet102
         PublicSubnet103Id: !GetAtt NetworkStack.Outputs.PublicSubnet103
+        EcsTaskExecutionRole: !GetAtt SecurityStack.Outputs.EcsTaskExecutionRole
+        EcsServiceRole: !GetAtt SecurityStack.Outputs.EcsServiceRole
+        EcsTaskRole: !GetAtt SecurityStack.Outputs.EcsTaskRole
       TemplateURL: !Join [ /, [ "https://s3.amazonaws.com", !Ref TemplatesBucket, "compute.yml" ] ]
   
 Outputs:
@@ -62,5 +78,9 @@ Outputs:
     Description: ARN of compute nested Stack
     Value: !Ref ComputeStack
     Export:
+      Name: COMPUTE-STACK-ID
+  SecurityStack:
+    Description: ARN of security nested Stack
+    Value: !Ref SecurityStack
+    Export:
       Name: SECURITY-STACK-ID
-
