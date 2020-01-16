@@ -1,0 +1,26 @@
+---
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "This template defines AWS Managed services (SaaS). Resources defined on this template:
+ECR." 
+
+Parameters: 
+  BaseEcrRepositoryName: 
+    Type: String
+    Default: "my-ha-architecture"
+    Description: "Ecr repository name"
+  ApiServiceName: 
+    Type: String
+    Default: "api"
+    Description: "Api service repository name"
+Resources: 
+  ApiEcrRepository:
+    Type: "AWS::ECR::Repository"
+    Properties:
+      RepositoryName: !Join [ "/" , [ !Ref BaseEcrRepositoryName , !Ref ApiServiceName ]]
+
+Outputs:
+  ApiEcrRepositoryName:
+    Description: "Api Ecr repository name"
+    Value: !GetAtt ApiEcrRepository.Arn
+    Export: 
+      Name: API-ECR-REPOSITORY-NAME

@@ -18,6 +18,13 @@ Parameters:
     Type: String
     Description: "Projcet Name."
     ConstraintDescription: "must specified."
+  CreateCompute: 
+    Type: String
+    Default: false
+    Description: "Condition to prevent stacks from being created"
+
+Conditions:
+  CreateCompute: !Equals [ !Ref CreateCompute, true ]
 
 Resources:
   NetworkStack:
@@ -48,6 +55,7 @@ Resources:
       TemplateURL: !Join [ /, [ "https://s3.amazonaws.com", !Ref TemplatesBucket, "security.yml" ] ]
   ComputeStack:
     DependsOn: NetworkStack
+    Condition: CreateCompute
     Type: "AWS::CloudFormation::Stack"
     Properties:
       Tags:
@@ -67,7 +75,15 @@ Resources:
         EcsServiceRole: !GetAtt SecurityStack.Outputs.EcsServiceRole
         EcsTaskRole: !GetAtt SecurityStack.Outputs.EcsTaskRole
       TemplateURL: !Join [ /, [ "https://s3.amazonaws.com", !Ref TemplatesBucket, "compute.yml" ] ]
-  
+  ManagedServicesStack:
+    Type: "AWS::CloudFormation::Stack"
+    Properties:
+      Tags:
+        - 
+          Key: project
+          Value: !Ref ProjectName
+      TemplateURL: !Join [ /, [ "https://s3.amazonaws.com", !Ref TemplatesBucket, "managed-services.yml" ] ]
+
 Outputs:
   NetworkStack:
     Description: ARN of network nested Stack
@@ -76,7 +92,7 @@ Outputs:
       Name: NETWORK-STACK-ID
   ComputeStack:
     Description: ARN of compute nested Stack
-    Value: !Ref ComputeStack
+    Value: !If [ CreateCompute, !Ref ComputeStack, "not created"]
     Export:
       Name: COMPUTE-STACK-ID
   SecurityStack:
@@ -84,3 +100,8 @@ Outputs:
     Value: !Ref SecurityStack
     Export:
       Name: SECURITY-STACK-ID
+  ManagedServicesStack:
+    Description: ARN of managed services nested Stack
+    Value: !Ref ManagedServicesStack
+    Export: 
+      Name: MANAGED-SERVICES-STACK
