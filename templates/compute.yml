@@ -21,20 +21,68 @@ Parameters:
   PublicSubnet103Id:
     Type: String
     Description : "must be a public subnet Id"
-  EcsTaskExecutionRole:
+  PrivateSubnet1Id:
     Type: String
-    Description : "Task Execution Role"
+    Description : "must be a private subnet Id"
+  PrivateSubnet2Id:
+    Type: String
+    Description : "must be a private subnet Id"
+  PrivateSubnet3Id:
+    Type: String
+    Description : "must be a private subnet Id"
+  Ec2InstanceProfile:
+    Type: String
+    Description : "Instance Profile"
   EcsTaskRole:
     Type: String
     Description : "Task Role"
   EcsServiceRole:
     Type: String
     Description : "Service Role"
+  EcsLogGroupPrefix:
+    Type: String
+    Default: "ecs"
+    Description: "Prefix for Log Group"
+  KeyName:
+    Type: String
+    Description: KeyName
+    Default: 'key-ire'
+  ContainerInstancesSecurityGroupName:
+    Type: String
+    Default: ecs-instances-sg
+    Description: "Api service group"
+  ContainerInstancesName:
+    Type: String
+    Default: ecs-instances-asg
+    Description: "Api service group"
+  SpotPricePerDesiredCPUUnit:
+    Description: "Spot Price for CPU unit" 
+    Type: String
+    Default: "0.0140"
+  EcsAmi:
+    Description: AMI ID
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/ecs/optimized-ami/amazon-linux/recommended/image_id
+    Description: The Amazon Machine Image ID used for the cluster, leave it as the default value to get the latest AMI
+  InstanceType:
+    Description: EC2 instance type
+    Type: String
+    Default: t3.medium
+    Description: Class of EC2 instance used to host containers.
+    AllowedValues: [ t3.micro, t3.small, t3.medium, t3.large, t3.xlarge ]
+    ConstraintDescription: Please choose a valid instance type.
+  DesiredCapacity:
+    Type: Number
+    Default: '3'
+    Description: Number of EC2 instances to launch in your ECS cluster.
+  MaxSize:
+    Type: Number
+    Default: '6'
+    Description: Maximum number of EC2 instances that can be launched in your ECS cluster.
   AlbSgName:
     Type: String
     Default: alb-sg
-    Description: "Sets the environment."
-    ConstraintDescription: "must specify prod or dev."
+    Description: "ALB security group"
   ApiServiceCount:
     Type: Number
     Default: 3
@@ -47,6 +95,10 @@ Parameters:
     Type: String
     Default: api-service
     Description: This is the name of the ApiService Container
+  ApiServiceContainerImage:
+    Type: String
+    Default: 358441290192.dkr.ecr.eu-west-1.amazonaws.com/my-ha-architecture/api:latest
+    Description: Container Image, must be specified at stack creation
   ApiServiceMemory:
     Type: String
     Default: "2048"
@@ -104,8 +156,8 @@ Resources:
         - IpProtocol: tcp  
           CidrIp: 10.0.0.0/16
           Description: range of ports for outbound to back-end services, only to vpc
-          FromPort: 8000
-          ToPort: 9000
+          FromPort: 0
+          ToPort: 65535
       Tags:
         -
           Key: Name
@@ -124,11 +176,12 @@ Resources:
       Port: 80
       Protocol: HTTP
   EcsCluster:
+    DependsOn: ApiServiceTaskDefinition
     Type: "AWS::ECS::Cluster"
     Properties:
       ClusterName: !Sub "${Environment}-cluster"
   ApiService:
-    DependsOn: EcsCluster
+    DependsOn: [ EcsCluster , ApiServiceTargetGroup , AppLoadBalancer, AlbListernerRuleForApi ]
     Type: "AWS::ECS::Service"
     Properties:
       Cluster: !Ref EcsCluster
@@ -138,14 +191,13 @@ Resources:
       DeploymentController:
         Type: ECS
       DesiredCount: !Ref ApiServiceCount
-      EnableECSManagedTags: true
+      EnableECSManagedTags: false
       HealthCheckGracePeriodSeconds: 120
       LaunchType: EC2
       LoadBalancers:
         - 
-          ContainerName: !Ref ApiServiceContainerName
+          ContainerName: !Join [ "-" , [!Ref Environment, !Ref ApiServiceContainerName ]]
           ContainerPort: !Ref ApiServiceContainerPort
-          LoadBalancerName: !GetAtt AppLoadBalancer.LoadBalancerName
           TargetGroupArn: !Ref ApiServiceTargetGroup
       PlacementStrategies:
         - Field: attribute:ecs.availability-zone
@@ -155,26 +207,40 @@ Resources:
       Role: !Ref EcsServiceRole
       SchedulingStrategy: REPLICA
       ServiceName: !Join [ "-" , [!Ref Environment, !Ref ApiServiceContainerName ]]
-      TaskDefinition: !Sub "${Environment}-${ApiServiceContainerName-td:1"
-      #TaskDefinition should be the same as Family:Revision
+      TaskDefinition: !Ref ApiServiceTaskDefinition 
   ApiServiceTaskDefinition:
     Type: "AWS::ECS::TaskDefinition"
+    DependsOn: ApiServiceLogGroup
     Properties:
       ContainerDefinitions:
-        - ContainerDefinition
-      ExecutionRoleArn: !Ref EcsTaskExecutionRole
+        - Name: !Join [ "-" , [!Ref Environment, !Ref ApiServiceContainerName ]]
+          Image: !Ref ApiServiceContainerImage
+          MemoryReservation: !Ref ApiServiceMemory
+          PortMappings:
+            -
+              ContainerPort: !Ref ApiServiceContainerPort
+              Protocol: tcp
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-region: !Ref AWS::Region
+              awslogs-group: !Ref ApiServiceLogGroup
+              awslogs-stream-prefix: !Ref EcsLogGroupPrefix
       Family: !Join [ "-" , [!Ref Environment, !Ref ApiServiceContainerName , "td"]]
       Memory: !Ref ApiServiceMemory
       NetworkMode: bridge
       PidMode: task
-      TaskRoleArn: !Ref EcsTaskRole
+  ApiServiceLogGroup:
+    Type: "AWS::Logs::LogGroup"
+    Properties:
+      LogGroupName: !Join ["/", ["" , !Ref EcsLogGroupPrefix , !Ref ApiServiceContainerName]]
+      RetentionInDays: 60
   ApiServiceTargetGroup:
     Type: "AWS::ElasticLoadBalancingV2::TargetGroup"
     Properties:
       HealthCheckEnabled: true
       HealthCheckIntervalSeconds: 30
       HealthCheckPath: "/"
-      HealthCheckPort: !Ref ApiServiceContainerPort
       HealthCheckProtocol: HTTP
       HealthCheckTimeoutSeconds: 10
       HealthyThresholdCount: 5
@@ -199,6 +265,82 @@ Resources:
       TargetType: instance
       UnhealthyThresholdCount: 5
       VpcId: !Ref VpcId
+  AlbListernerRuleForApi:
+    Type: "AWS::ElasticLoadBalancingV2::ListenerRule"
+    Properties:
+      Actions: #required
+        - 
+          TargetGroupArn : !Ref ApiServiceTargetGroup
+          Type: forward
+
+      Conditions: #required
+        - 
+          Field: path-pattern
+          PathPatternConfig:
+            Values:
+              - "/api"
+      ListenerArn: !Ref AlbHTTPListener
+      Priority: 1
+  EcsAutoScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      Cooldown: 300
+      VPCZoneIdentifier:
+        - !Ref PrivateSubnet1Id
+        - !Ref PrivateSubnet2Id
+        - !Ref PrivateSubnet3Id
+      LaunchConfigurationName: !Ref 'ContainerInstancesLaunchConfig'
+      MinSize: '1'
+      MaxSize: !Ref 'MaxSize'
+      DesiredCapacity: !Ref 'DesiredCapacity'
+      Tags:
+        - 
+            Key: Name
+            PropagateAtLaunch: true
+            Value: !Join [ "-" , [ !Ref Environment, !Ref ContainerInstancesName ]]
+    CreationPolicy:
+      ResourceSignal:
+        Timeout: PT15M
+    UpdatePolicy:
+      AutoScalingReplacingUpdate:
+        WillReplace: 'true'
+  ContainerInstancesSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Join [ "-" , [ !Ref Environment, !Ref ContainerInstancesSecurityGroupName ]]
+      GroupDescription: Access to the ECS hosts that run containers
+      VpcId: !Ref 'VpcId'
+      SecurityGroupIngress:
+        - SourceSecurityGroupId: !Ref AlbSg
+          IpProtocol: tcp
+          FromPort: 0
+          ToPort: 65535
+          Description: http inbound from AlbSg
+      SecurityGroupEgress:
+        - IpProtocol: -1  
+          CidrIp: 0.0.0.0/0
+          Description: to the internet and beyond
+          FromPort: 0
+          ToPort: 65535
+      Tags:
+        -
+          Key: Name
+          Value: !Join [ "-" ,[ !Ref Environment, !Ref ContainerInstancesSecurityGroupName ]]     
+  ContainerInstancesLaunchConfig:
+    Type: AWS::AutoScaling::LaunchConfiguration
+    Properties:
+      KeyName: !Ref KeyName
+      SpotPrice: !Ref SpotPricePerDesiredCPUUnit
+      ImageId: !Ref EcsAmi
+      SecurityGroups: [!Ref 'ContainerInstancesSecurityGroup']
+      InstanceType: !Ref 'InstanceType'
+      IamInstanceProfile: !Ref 'Ec2InstanceProfile'
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash -xe
+          echo ECS_CLUSTER=${EcsCluster} >> /etc/ecs/ecs.config
+          yum install -y aws-cfn-bootstrap
+          /opt/aws/bin/cfn-signal -e $? --stack ${AWS::StackName} --resource EcsAutoScalingGroup --region ${AWS::Region}
 
 Outputs:
   ALB:
@@ -212,17 +354,42 @@ Outputs:
     Export:
       Name: ALB-SG
   EcsCluster:
-      Description: ECS Cluster
-      Value: !Ref EcsCluster
-      Export:
-        Name: ECS-CLUSTER-NAME
+    Description: ECS Cluster
+    Value: !Ref EcsCluster
+    Export:
+      Name: ECS-CLUSTER-NAME
   ApiService:
-      Description: Api Service
-      Value: !Ref ApiService
-      Export:
-        Name: API-SERVICE
+    Description: Api Service
+    Value: !Ref ApiService
+    Export:
+      Name: API-SERVICE
   ApiServiceTargetGroup:
-      Description: Api Service target group
-      Value: !Ref ApiServiceTargetGroup
-      Export:
-        Name: API-SERVICE-TARGET-GROUP
+    Description: Api Service target group
+    Value: !Ref ApiServiceTargetGroup
+    Export:
+      Name: API-SERVICE-TARGET-GROUP
+  ApiServiceTaskDefinition:
+    Description: Api Service task definition
+    Value: !Ref ApiServiceTaskDefinition
+    Export:
+      Name: API-SERVICE-TASK-DEFINITION
+  ApiServiceLogGroup:
+    Description: Api Service log group 
+    Value: !Ref ApiServiceLogGroup
+    Export:
+      Name:  API-SERVICE-LOG-GROUP
+  EcsAutoScalingGroup:
+    Description: Auto Scaling Group
+    Value: !Ref EcsAutoScalingGroup
+    Export: 
+      Name: ECS-AUTO-SCALING-GROUP
+  ContainerInstancesLaunchConfig:
+    Description: LaunchConfig for Auto Scaling group
+    Value: !Ref ContainerInstancesLaunchConfig
+    Export: 
+      Name: CONTAINER-INSTANCES-LAUNCH-CONFIG
+  ContainerInstancesSecurityGroup:
+    Description: Security groups for container instances
+    Value: !Ref ContainerInstancesSecurityGroup
+    Export: 
+      Name: CONTAINER-INSTANCES-SECURITY-GROUP

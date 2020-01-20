@@ -20,7 +20,7 @@ Parameters:
     ConstraintDescription: "must specified."
   CreateCompute: 
     Type: String
-    Default: false
+    Default: true
     Description: "Condition to prevent stacks from being created"
 
 Conditions:
@@ -71,9 +71,12 @@ Resources:
         PublicSubnet101Id: !GetAtt NetworkStack.Outputs.PublicSubnet101
         PublicSubnet102Id: !GetAtt NetworkStack.Outputs.PublicSubnet102
         PublicSubnet103Id: !GetAtt NetworkStack.Outputs.PublicSubnet103
-        EcsTaskExecutionRole: !GetAtt SecurityStack.Outputs.EcsTaskExecutionRole
+        PrivateSubnet1Id: !GetAtt NetworkStack.Outputs.PrivateSubnet1
+        PrivateSubnet2Id: !GetAtt NetworkStack.Outputs.PrivateSubnet2        
+        PrivateSubnet3Id: !GetAtt NetworkStack.Outputs.PrivateSubnet3
         EcsServiceRole: !GetAtt SecurityStack.Outputs.EcsServiceRole
         EcsTaskRole: !GetAtt SecurityStack.Outputs.EcsTaskRole
+        Ec2InstanceProfile: !GetAtt SecurityStack.Outputs.Ec2InstanceProfile
       TemplateURL: !Join [ /, [ "https://s3.amazonaws.com", !Ref TemplatesBucket, "compute.yml" ] ]
   ManagedServicesStack:
     Type: "AWS::CloudFormation::Stack"

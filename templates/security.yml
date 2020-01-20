@@ -8,26 +8,26 @@ Parameters:
     AllowedValues: ["prod", "dev"]
     Description: "Sets the environment."
     ConstraintDescription: "must specify prod or dev."
-  EcsTaskExecutionPolicy:
-    Type: String
-    Default: "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
-    Description: "Provides access to other AWS service resources that are required to run Amazon ECS tasks"
   EcsTaskPolicyName:
     Type: String
     Default: ecs-policy
+    Description: "Custom policy that allow task to interact with AWS Resources"
+  Ec2PolicyName:
+    Type: String
+    Default: ec2-policy
     Description: "Custom policy that allow task to interact with AWS Resources"
   EcsTaskRoleName: 
     Type: String
     Default: ecs-task-role
     Description: "ECS Execution Role"
-  EcsTaskExecutionRoleName: 
-    Type: String
-    Default: ecs-execution-role
-    Description: "ECS Execution Role"
   EcsServiceRole:
     Type: String
     Default: "arn:aws:iam::358441290192:role/aws-service-role/ecs.amazonaws.com/AWSServiceRoleForECS"
     Description: "Role to enable Amazon ECS to manage your cluster."
+  RolesPath:
+    Description: 'path for custom created roles' 
+    Type: String
+    Default: "/service-role/"
 
 Resources:
   EcsTaskPolicy:
@@ -58,31 +58,67 @@ Resources:
       Description: ECS Task Role
       Path: "/service-role/"
       RoleName: !Join [ "-" , [!Ref Environment, !Ref EcsTaskRoleName]]
-  EcsTaskExecutionRole:
+  Ec2InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Path: !Ref RolesPath
+      Roles: [!Ref 'Ec2Role']
+  Ec2Role:
     Type: AWS::IAM::Role
-    Properties: 
+    Properties:
       AssumeRolePolicyDocument:
-        Version: "2012-10-17"
         Statement:
-          -
-            Effect: "Allow"
-            Principal:
-              Service:
-                - "ecs.amazonaws.com"
+        - Effect: Allow
+          Principal:
+            Service: [ec2.amazonaws.com]
+          Action: ['sts:AssumeRole']
+      Path: !Ref RolesPath
+      Policies:
+      - PolicyName: !Join [ "-" , [!Ref Environment, !Ref Ec2PolicyName]]
+        PolicyDocument:
+          Statement:
+          - Effect: Allow
             Action:
-              - "sts:AssumeRole"
-      Description: ECS Execution Role
-      ManagedPolicyArns: 
-        - !Ref EcsTaskExecutionPolicy
-      Path: "/service-role/"
-      RoleName: !Join [ "-" , [!Ref Environment, !Ref EcsTaskExecutionRoleName]]
-
+              - 'ecs:CreateCluster'
+              - 'ecs:DescribeServices'
+              - 'ecs:DeregisterContainerInstance'
+              - 'ecs:DiscoverPollEndpoint'
+              - 'ecs:Poll'
+              - 'ecs:RegisterContainerInstance'
+              - 'ecs:StartTelemetrySession'
+              - 'ecs:Submit*'
+              - 'logs:CreateLogStream'
+              - 'logs:PutLogEvents'
+              - 'cloudwatch:DescribeAlarms'
+              - 'cloudwatch:PutMetricAlarm'
+              - 'cloudwatch:PutMetricData'
+              - 'ecr:GetAuthorizationToken'
+              - 'ecr:BatchGetImage'
+              - 'ecr:GetDownloadUrlForLayer'
+            Resource: '*'
+  AutoScalingRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: [application-autoscaling.amazonaws.com]
+          Action: ['sts:AssumeRole']
+      Path: !Ref RolesPath
+      Policies:
+      - PolicyName: service-autoscaling
+        PolicyDocument:
+          Statement:
+          - Effect: Allow
+            Action:
+              - 'application-autoscaling:*'
+              - 'cloudwatch:DescribeAlarms'
+              - 'cloudwatch:PutMetricAlarm'
+              - 'ecs:DescribeServices'
+              - 'ecs:UpdateService'
+            Resource: '*'
 Outputs:
-  EcsTaskExecutionRole:
-    Description: "Task execution role"
-    Value: !GetAtt EcsTaskExecutionRole.Arn
-    Export:
-      Name: ECS-TAKS-EXECUTION-ROLE
   EcsServiceRole:
     Description: "AWS Managed Role"
     Value: !Ref EcsServiceRole
@@ -98,4 +134,18 @@ Outputs:
     Value: !Ref EcsTaskPolicy
     Export:
       Name: ECS-TASK-POlICY
-    
+  Ec2InstanceProfile:
+    Description: "Instance Profile"
+    Value: !Ref Ec2InstanceProfile
+    Export:
+      Name: EC2-INSTANCE-PROFILE
+  Ec2Role:
+    Description: "Role for instances on ECS Cluster"
+    Value: !Ref Ec2Role
+    Export:
+      Name: EC2-ROLE
+  AutoScalingRole:
+    Description: "Role to manage Auto Scaling"
+    Value: !Ref AutoScalingRole
+    Export:
+      Name: AUTO-SCALING-ROLE
