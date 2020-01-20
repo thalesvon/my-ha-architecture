@@ -26,3 +26,11 @@ AlbHTTPListener:
 [x] Add internet route on VPC route route table
 
 [ ] ApiService.Properties.DeploymentController.Type is configured to ECS right now but it is planned to implement blue/green deployment using type CODE_DEPLOY
+
+# To upload docker image
+
+```shell
+$(aws ecr get-login --no-include-email)
+docker tag hello acc_id.dkr.ecr.REGION.amazonaws.com/my-ha-architecture/api:latest
+docker push acc_id.dkr.ecr.REGION.amazonaws.com/my-ha-architecture/api:latest
+```
