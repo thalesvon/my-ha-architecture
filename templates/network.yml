@@ -155,7 +155,7 @@ Resources:
     Type: AWS::EC2::NatGateway
     Properties:
         AllocationId: !GetAtt EIP1.AllocationId
-        SubnetId: !Ref PrivateSubnet1
+        SubnetId: !Ref PublicSubnet101
         Tags:
         -
           Key: Name
@@ -192,7 +192,7 @@ Resources:
     Type: AWS::EC2::NatGateway
     Properties:
         AllocationId: !GetAtt EIP2.AllocationId
-        SubnetId: !Ref PrivateSubnet2
+        SubnetId: !Ref PublicSubnet102
         Tags:
         -
           Key: Name
@@ -229,7 +229,7 @@ Resources:
     Type: AWS::EC2::NatGateway
     Properties:
         AllocationId: !GetAtt EIP3.AllocationId
-        SubnetId: !Ref PrivateSubnet3
+        SubnetId: !Ref PublicSubnet103
         Tags:
         -
           Key: Name
@@ -298,6 +298,11 @@ Outputs:
     Value: !Ref PrivateSubnet2
     Export:
       Name: PVT-SUB-2-ID
+  PrivateSubnet3:
+    Description: Private subnet 3
+    Value: !Ref PrivateSubnet3
+    Export:
+      Name: PVT-SUB-3-ID
   Igw:
     Description: Internet Gateway
     Value: !Ref Igw
