@@ -1,0 +1,156 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "This is the management stack template for my-ha-architecture. Resource defined on this template:
+Bastion Host."
+
+Parameters: 
+  Environment:
+    Type: String
+    AllowedValues: ["prod", "dev"]
+    Description: "Sets the environment."
+    ConstraintDescription: "must specify prod or dev." 
+  VpcId:
+    Type: String
+    Description: "VPC from child network stack"
+  AmiId:
+    Type: "AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>"
+    Default: "/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2"
+  KeyName:
+    Type: String
+    Default: "key-ire"
+  SpotPricePerDesiredCPUUnit:
+    Description: "Spot Price for CPU unit" 
+    Type: String
+    Default: "0.0020"
+  InstanceType:
+    Description: EC2 instance type
+    Type: String
+    Default: t3.nano
+    Description: Class of EC2 instance used to host bastion.
+    AllowedValues: [ t3.nano, t3.micro, t3.small ]
+    ConstraintDescription: Please choose a valid instance type.
+    Description: Class of EC2 instance used to host bastion server.
+  TargetCapacity:
+    Type: String
+    Description: TargetCapacity
+    Default: '1'
+  MyPublicIp:
+    Type: String
+    Description: My Public Ip to ssh the bastion hosts. CIDR notation
+  PublicSubnet101Id:
+    Type: String
+    Description : "must be a public subnet Id"
+  PublicSubnet102Id:
+    Type: String
+    Description : "must be a public subnet Id"
+  PublicSubnet103Id:
+    Type: String
+    Description : "must be a public subnet Id"
+  ContainerInstancesSecurityGroup: 
+    Type: String
+    Description: Container instances on private subnet sg
+  DesiredCapacity:
+    Type: Number
+    Default: '1'
+    Description: Number of bastion instances to launch.
+  MaxSize:
+    Type: Number
+    Default: '3'
+    Description: Maximum number of EC2 instances that can be launched in your bastion ASG.
+  BastionInstanceProfile:
+    Type: String
+    Description: "Instance Profile for bastion host"
+
+Conditions:
+  HasKeyName: !Not [!Equals [ !Ref KeyName, '' ]]
+
+Resources:
+  BastionFleetSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Join [ "-" , [!Ref Environment, "bastion-sg"]]
+      GroupDescription: "Security group attached to bastion host"
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: !Ref MyPublicIp
+          Description: ssh inbound
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+          Description: http inbound from internet
+      SecurityGroupEgress:
+        - IpProtocol: tcp  
+          DestinationSecurityGroupId: !Ref ContainerInstancesSecurityGroup
+          FromPort: 22
+          ToPort: 22
+          Description: range of ports for outbound to back-end services, only to vpc ContainerInstancesSecurityGroup
+        - IpProtocol: -1  
+          CidrIp: 0.0.0.0/0
+          Description: to the internet and beyond
+          FromPort: 0
+          ToPort: 65535
+      Tags:
+        -
+          Key: Name
+          Value: !Join [ "-" , [!Ref Environment, "bastion-sg"]]
+  BastionAutoScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    DependsOn: BastionInstancesLaunchConfig
+    Properties:
+      Cooldown: 300
+      VPCZoneIdentifier:
+        - !Ref PublicSubnet101Id
+        - !Ref PublicSubnet102Id
+        - !Ref PublicSubnet103Id
+      LaunchConfigurationName: !Ref 'BastionInstancesLaunchConfig'
+      MinSize: '0'
+      MaxSize: !Ref 'MaxSize'
+      DesiredCapacity: !Ref 'DesiredCapacity'
+      Tags:
+        - 
+            Key: Name
+            PropagateAtLaunch: true
+            Value: !Join [ "-" , [ !Ref Environment, "bastion" ]]
+    CreationPolicy:
+      ResourceSignal:
+        Timeout: PT15M
+    UpdatePolicy:
+      AutoScalingReplacingUpdate:
+        WillReplace: 'true'
+  BastionInstancesLaunchConfig:
+    Type: AWS::AutoScaling::LaunchConfiguration
+    DependsOn: BastionFleetSecurityGroup
+    Properties:
+      KeyName: !Ref KeyName
+      SpotPrice: !Ref SpotPricePerDesiredCPUUnit
+      ImageId: !Ref AmiId
+      SecurityGroups: [!Ref 'BastionFleetSecurityGroup']
+      InstanceType: !Ref 'InstanceType'
+      IamInstanceProfile: !Ref 'BastionInstanceProfile'
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          
+          set -eux
+          yum install -y aws-cfn-bootstrap
+          /opt/aws/bin/cfn-signal -e $? --stack ${AWS::StackName} --resource BastionAutoScalingGroup --region ${AWS::Region}
+
+Outputs:
+  BastionAutoScalingGroup:
+    Description: "BastionAutoScalingGroup"
+    Value: !Ref BastionAutoScalingGroup
+    Export: 
+      Name: BASTION-AUTO-SCALING-GROUP
+  BastionFleetSecurityGroup:
+    Description: "BastionFleetSecurityGroup"
+    Value: !Ref BastionFleetSecurityGroup
+    Export: 
+      Name: BASTION-FLEET-SECURITY-GROUP
+  BastionInstancesLaunchConfig:
+    Description: "BastionInstancesLaunchConfig"
+    Value: !Ref BastionInstancesLaunchConfig
+    Export: 
+      Name: BASTION-INSTANCES-LAUNCH-CONFIG

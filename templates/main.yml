@@ -18,13 +18,22 @@ Parameters:
     Type: String
     Description: "Projcet Name."
     ConstraintDescription: "must specified."
+  MyPublicIp:
+    Type: String
+    Default: "72.21.198.64/32"
+    Description: "My public ip to ssh to bastion host. CIDR notation" 
   CreateCompute: 
+    Type: String
+    Default: true
+    Description: "Condition to prevent stacks from being created"
+  CreateManagement: 
     Type: String
     Default: true
     Description: "Condition to prevent stacks from being created"
 
 Conditions:
   CreateCompute: !Equals [ !Ref CreateCompute, true ]
+  CreateManagement: !Equals [ !Ref CreateManagement, true ]
 
 Resources:
   NetworkStack:
@@ -86,7 +95,28 @@ Resources:
           Key: project
           Value: !Ref ProjectName
       TemplateURL: !Join [ /, [ "https://s3.amazonaws.com", !Ref TemplatesBucket, "managed-services.yml" ] ]
-
+  ManagementStack:
+    DependsOn: ComputeStack
+    Condition: CreateManagement
+    Type: "AWS::CloudFormation::Stack"
+    Properties:
+      Tags:
+        - 
+          Key: project
+          Value: !Ref ProjectName
+        -
+          Key: environment
+          Value: !Ref EnvironmentName
+      Parameters:
+        Environment: !Ref EnvironmentName
+        VpcId: !GetAtt NetworkStack.Outputs.VpcHA
+        PublicSubnet101Id: !GetAtt NetworkStack.Outputs.PublicSubnet101
+        PublicSubnet102Id: !GetAtt NetworkStack.Outputs.PublicSubnet102
+        PublicSubnet103Id: !GetAtt NetworkStack.Outputs.PublicSubnet103
+        ContainerInstancesSecurityGroup: !GetAtt ComputeStack.Outputs.ContainerInstancesSecurityGroup
+        BastionInstanceProfile: !GetAtt SecurityStack.Outputs.BastionInstanceProfile
+        MyPublicIp: !Ref MyPublicIp
+      TemplateURL: !Join [ /, [ "https://s3.amazonaws.com", !Ref TemplatesBucket, "management.yml" ] ]
 Outputs:
   NetworkStack:
     Description: ARN of network nested Stack

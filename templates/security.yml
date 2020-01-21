@@ -28,6 +28,10 @@ Parameters:
     Description: 'path for custom created roles' 
     Type: String
     Default: "/service-role/"
+  BastionPolicyName:
+    Type: String
+    Default: bastion-policy
+    Description: "Custom policy that allow bastion to update DNS record"
 
 Resources:
   EcsTaskPolicy:
@@ -92,6 +96,7 @@ Resources:
               - 'cloudwatch:DescribeAlarms'
               - 'cloudwatch:PutMetricAlarm'
               - 'cloudwatch:PutMetricData'
+              - 'cloudformation:SignalResource'
               - 'ecr:GetAuthorizationToken'
               - 'ecr:BatchGetImage'
               - 'ecr:GetDownloadUrlForLayer'
@@ -118,6 +123,31 @@ Resources:
               - 'ecs:DescribeServices'
               - 'ecs:UpdateService'
             Resource: '*'
+  BastionInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Path: !Ref RolesPath
+      Roles: [!Ref 'BastionRole']
+  BastionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: [ec2.amazonaws.com]
+          Action: ['sts:AssumeRole']
+      Path: !Ref RolesPath
+      Policies:
+      - PolicyName: !Join [ "-" , [!Ref Environment, !Ref BastionPolicyName]]
+        PolicyDocument:
+          Statement:
+          - Effect: Allow
+            Action:
+              - 'route53:ChangeResourceRecordSets'
+              - 'cloudformation:SignalResource'
+            Resource: '*'
+
 Outputs:
   EcsServiceRole:
     Description: "AWS Managed Role"
@@ -149,3 +179,13 @@ Outputs:
     Value: !Ref AutoScalingRole
     Export:
       Name: AUTO-SCALING-ROLE
+  BastionInstanceProfile:
+    Description: BastionInstanceProfile
+    Value: !Ref BastionInstanceProfile
+    Export: 
+      Name: BASTION-INSTANCE-PROFILE
+  BastionRole:
+    Description: BastionRole
+    Value: !Ref BastionRole
+    Export: 
+      Name: BASTION-ROLE
