@@ -146,6 +146,7 @@ Resources:
             Action:
               - 'route53:ChangeResourceRecordSets'
               - 'cloudformation:SignalResource'
+              - 'cloudformation:DescribeStacks'
             Resource: '*'
 
 Outputs:
