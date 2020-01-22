@@ -51,6 +51,9 @@ Parameters:
     Type: String
     Default: ecs-instances-sg
     Description: "Api service group"
+  BastionFleetSecurityGroup:
+    Description: "Bastion security group. Necessary to add ssh inbound rule."
+    Type: String
   ContainerInstancesName:
     Type: String
     Default: ecs-instances-asg
@@ -155,8 +158,8 @@ Resources:
       SecurityGroupEgress:
         - IpProtocol: tcp  
           CidrIp: 10.0.0.0/16
-          Description: range of ports for outbound to back-end services, only to vpc
-          FromPort: 0
+          Description: range of ephemeral ports for outbound to back-end services, only to vpc
+          FromPort: 32768
           ToPort: 65535
       Tags:
         -
@@ -313,9 +316,14 @@ Resources:
       SecurityGroupIngress:
         - SourceSecurityGroupId: !Ref AlbSg
           IpProtocol: tcp
-          FromPort: 0
+          FromPort: 32768
           ToPort: 65535
           Description: http inbound from AlbSg
+        - SourceSecurityGroupId: !Ref BastionFleetSecurityGroup
+          IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          Description: ssh inbound from bastion
       SecurityGroupEgress:
         - IpProtocol: -1  
           CidrIp: 0.0.0.0/0

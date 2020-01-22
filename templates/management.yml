@@ -45,9 +45,6 @@ Parameters:
   PublicSubnet103Id:
     Type: String
     Description : "must be a public subnet Id"
-  ContainerInstancesSecurityGroup: 
-    Type: String
-    Description: Container instances on private subnet sg
   DesiredCapacity:
     Type: Number
     Default: '1'
@@ -82,11 +79,6 @@ Resources:
           CidrIp: 0.0.0.0/0
           Description: http inbound from internet
       SecurityGroupEgress:
-        - IpProtocol: tcp  
-          DestinationSecurityGroupId: !Ref ContainerInstancesSecurityGroup
-          FromPort: 22
-          ToPort: 22
-          Description: range of ports for outbound to back-end services, only to vpc ContainerInstancesSecurityGroup
         - IpProtocol: -1  
           CidrIp: 0.0.0.0/0
           Description: to the internet and beyond
