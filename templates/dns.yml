@@ -1,0 +1,41 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "This is the dns stack template. Resource defined on this template:
+Route 53 Hosted Zone. This stack will not be created as a nested stack to avoid its deletion." 
+
+Parameters:
+  EnvironmentName:
+    Type: String
+    Default: "prod"
+    Description: "Sets the environment."
+  ProjectName:
+    Type: String
+    Description: "Projcet Name."
+    Default: "universal"
+  HostedZoneName: 
+    Type: String
+    Default: "sperlt.myinstance.com"
+
+Resources:
+  PublicDnsHostedZone:
+    Type: "AWS::Route53::HostedZone"
+    Properties:
+      HostedZoneConfig:
+        Comment: "DO NOT DELETE IT, hosted zone for internal AWS Account"
+      Name: !Sub "${HostedZoneName}"
+      HostedZoneTags:
+        - 
+          Key: auto-delete
+          Value: never
+        -
+          Key: environment
+          Value: !Ref EnvironmentName
+        - 
+          Key: project
+          Value: !Ref ProjectName
+
+Outputs:
+  PublicDnsHostedZone:
+    Description: Hosted Zone
+    Value: !Ref PublicDnsHostedZone
+    Export: 
+      Name: PUBLIC-DNS-HOSTED-ZONE

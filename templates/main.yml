@@ -22,18 +22,18 @@ Parameters:
     Type: String
     Default: "72.21.198.64/32"
     Description: "My public ip to ssh to bastion host. CIDR notation" 
-  CreateCompute: 
+  CreateComputeValue: 
     Type: String
     Default: true
     Description: "Condition to prevent stacks from being created"
-  CreateManagement: 
+  CreateManagementValue: 
     Type: String
     Default: true
     Description: "Condition to prevent stacks from being created"
 
 Conditions:
-  CreateCompute: !Equals [ !Ref CreateCompute, true ]
-  CreateManagement: !Equals [ !Ref CreateManagement, true ]
+  CreateCompute: !Equals [ !Ref CreateComputeValue, true ]
+  CreateManagement: !Equals [ !Ref CreateManagementValue, true ]
 
 Resources:
   NetworkStack:
@@ -86,6 +86,7 @@ Resources:
         EcsServiceRole: !GetAtt SecurityStack.Outputs.EcsServiceRole
         EcsTaskRole: !GetAtt SecurityStack.Outputs.EcsTaskRole
         Ec2InstanceProfile: !GetAtt SecurityStack.Outputs.Ec2InstanceProfile
+        BastionFleetSecurityGroup: !GetAtt ManagementStack.Outputs.BastionFleetSecurityGroup
       TemplateURL: !Join [ /, [ "https://s3.amazonaws.com", !Ref TemplatesBucket, "compute.yml" ] ]
   ManagedServicesStack:
     Type: "AWS::CloudFormation::Stack"
@@ -96,7 +97,7 @@ Resources:
           Value: !Ref ProjectName
       TemplateURL: !Join [ /, [ "https://s3.amazonaws.com", !Ref TemplatesBucket, "managed-services.yml" ] ]
   ManagementStack:
-    DependsOn: ComputeStack
+    DependsOn: NetworkStack
     Condition: CreateManagement
     Type: "AWS::CloudFormation::Stack"
     Properties:
@@ -113,10 +114,10 @@ Resources:
         PublicSubnet101Id: !GetAtt NetworkStack.Outputs.PublicSubnet101
         PublicSubnet102Id: !GetAtt NetworkStack.Outputs.PublicSubnet102
         PublicSubnet103Id: !GetAtt NetworkStack.Outputs.PublicSubnet103
-        ContainerInstancesSecurityGroup: !GetAtt ComputeStack.Outputs.ContainerInstancesSecurityGroup
         BastionInstanceProfile: !GetAtt SecurityStack.Outputs.BastionInstanceProfile
         MyPublicIp: !Ref MyPublicIp
       TemplateURL: !Join [ /, [ "https://s3.amazonaws.com", !Ref TemplatesBucket, "management.yml" ] ]
+
 Outputs:
   NetworkStack:
     Description: ARN of network nested Stack
@@ -138,3 +139,8 @@ Outputs:
     Value: !Ref ManagedServicesStack
     Export: 
       Name: MANAGED-SERVICES-STACK
+  ManagementStack:
+    Description: ARN of management nested Stack
+    Value: !Ref ManagementStack
+    Export: 
+      Name: MANAGEMENT-STACK
