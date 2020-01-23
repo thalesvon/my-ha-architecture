@@ -1,6 +1,7 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: "This is the dns stack template. Resource defined on this template:
-Route 53 Hosted Zone. This stack will not be created as a nested stack to avoid its deletion." 
+Route 53 Hosted Zone. This stack will not be created as a nested stack to avoid its deletion.
+SSL Certificates requested direclty from console to avoid stack to be stuck in CREATE_IN_PROGRESS" 
 
 Parameters:
   EnvironmentName:
@@ -39,3 +40,8 @@ Outputs:
     Value: !Ref PublicDnsHostedZone
     Export: 
       Name: PUBLIC-DNS-HOSTED-ZONE
+  HostedZoneName:
+    Description: base dns for other stacks
+    Value: !Ref HostedZoneName
+    Export: 
+      Name: HOSTED-ZONE-NAME

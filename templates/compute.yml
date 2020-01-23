@@ -86,6 +86,9 @@ Parameters:
     Type: String
     Default: alb-sg
     Description: "ALB security group"
+  SslCertificateArn:
+    Description: "ssl certificate"
+    Type: String
   ApiServiceCount:
     Type: Number
     Default: 3
@@ -106,6 +109,12 @@ Parameters:
     Type: String
     Default: "2048"
     Description: The amount of memory used by task
+  HostedZone:
+    Description: "Dns hosted zone Id" 
+    Type: String
+  BaseDnsName:
+    Description: "root level dns name for hosted zone"
+    Type: String
 
 Conditions:
   CreateProdResources: !Equals [ !Ref Environment, prod ]
@@ -170,14 +179,32 @@ Resources:
     Properties:
       DefaultActions:
         - 
+          RedirectConfig:
+            Host: "#{host}"
+            Path: "/#{path}"
+            Port: 443
+            Protocol: "HTTPS"
+            Query: "#{query}"
+            StatusCode: HTTP_301
+          Type: redirect
+      LoadBalancerArn: !Ref AppLoadBalancer
+      Port: 80
+      Protocol: HTTP
+  AlbHTTPSListener:
+    Type: "AWS::ElasticLoadBalancingV2::Listener"
+    Properties:
+      Certificates:
+        - CertificateArn: !Ref SslCertificateArn
+      DefaultActions:
+        - 
           FixedResponseConfig:
             ContentType: text/html
             MessageBody: "<h2>Ok you hit the alb</h2>"
             StatusCode: "200"
           Type: fixed-response
       LoadBalancerArn: !Ref AppLoadBalancer
-      Port: 80
-      Protocol: HTTP
+      Port: 443
+      Protocol: HTTPS
   EcsCluster:
     DependsOn: ApiServiceTaskDefinition
     Type: "AWS::ECS::Cluster"
@@ -268,6 +295,17 @@ Resources:
       TargetType: instance
       UnhealthyThresholdCount: 5
       VpcId: !Ref VpcId
+  ApiServiceDnsRecord:
+    Type: "AWS::Route53::RecordSet"
+    Properties:
+      AliasTarget:
+        DNSName: !GetAtt AppLoadBalancer.DNSName
+        HostedZoneId: !GetAtt AppLoadBalancer.CanonicalHostedZoneID
+      Comment: "dns entry for api service"
+      HostedZoneId: !Ref HostedZone
+      Name: !Join [ ".", [ "api" , !Ref BaseDnsName ]]
+      Type: A
+  
   AlbListernerRuleForApi:
     Type: "AWS::ElasticLoadBalancingV2::ListenerRule"
     Properties:
@@ -278,11 +316,11 @@ Resources:
 
       Conditions: #required
         - 
-          Field: path-pattern
-          PathPatternConfig:
+          Field: host-header
+          HostHeaderConfig:
             Values:
-              - "/api"
-      ListenerArn: !Ref AlbHTTPListener
+              - !Join [ ".", [ "api" , !Ref BaseDnsName ]]
+      ListenerArn: !Ref AlbHTTPSListener
       Priority: 1
   EcsAutoScalingGroup:
     Type: AWS::AutoScaling::AutoScalingGroup

@@ -30,6 +30,10 @@ Parameters:
     Type: String
     Default: true
     Description: "Condition to prevent stacks from being created"
+  SslCertificateArn:
+    Description: "ssl certificate"
+    Type: String
+    Default: "arn:aws:acm:eu-west-1:358441290192:certificate/1ed7c29c-e690-4ea0-9163-63d7267d4802"
 
 Conditions:
   CreateCompute: !Equals [ !Ref CreateComputeValue, true ]
@@ -87,6 +91,9 @@ Resources:
         EcsTaskRole: !GetAtt SecurityStack.Outputs.EcsTaskRole
         Ec2InstanceProfile: !GetAtt SecurityStack.Outputs.Ec2InstanceProfile
         BastionFleetSecurityGroup: !GetAtt ManagementStack.Outputs.BastionFleetSecurityGroup
+        SslCertificateArn: !Ref SslCertificateArn
+        HostedZone: !ImportValue PUBLIC-DNS-HOSTED-ZONE
+        BaseDnsName: !ImportValue HOSTED-ZONE-NAME
       TemplateURL: !Join [ /, [ "https://s3.amazonaws.com", !Ref TemplatesBucket, "compute.yml" ] ]
   ManagedServicesStack:
     Type: "AWS::CloudFormation::Stack"
