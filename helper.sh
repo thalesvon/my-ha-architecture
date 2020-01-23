@@ -37,5 +37,8 @@ if [ $? -ne 0 ];then
                                     --template-body file://${DNS_TEMPLATE} \
                                     --enable-termination-protection
 else
-    echo "Stack ${DNS_STACK} exists, no action will be executed..."                                    
+    echo "Stack ${DNS_STACK} exists, no action will be executed..."
+    #aws cloudformation update-stack --stack-name ${DNS_STACK} \
+    #                                --capabilities CAPABILITY_NAMED_IAM \
+    #                                --template-body file://${DNS_TEMPLATE}                                   
 fi
