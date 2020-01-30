@@ -33,8 +33,8 @@ AlbHTTPListener:
 
 ```shell
 $(aws ecr get-login --no-include-email)
-docker tag hello acc_id.dkr.ecr.REGION.amazonaws.com/my-ha-architecture/api:latest
-docker push acc_id.dkr.ecr.REGION.amazonaws.com/my-ha-architecture/api:latest
+docker tag hello 358441290192.dkr.ecr.eu-west-1.amazonaws.com/my-ha-architecture/api:latest
+docker push 358441290192.dkr.ecr.eu-west-1.amazonaws.com/my-ha-architecture/api:latest
 ```
 
 # Resource created outside cloudformation
