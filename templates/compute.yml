@@ -115,6 +115,22 @@ Parameters:
   BaseDnsName:
     Description: "root level dns name for hosted zone"
     Type: String
+  XRayContainerName:
+    Description: "Container Name for XRay Daemon"
+    Type: String
+    Default: xray-daemon
+  XRayServiceContainerImage:
+    Type: String
+    Default: 358441290192.dkr.ecr.eu-west-1.amazonaws.com/my-ha-architecture/xray:latest
+    Description: Container Image, must be specified at stack creation
+  XRayServiceContainerPort:
+    Type: Number
+    Default: 2020
+    Description: This is the exposed port on the Xray daemon
+  XRayServiceMemory:
+    Type: String
+    Default: "256"
+    Description: The amount of memory used by task
 
 Conditions:
   CreateProdResources: !Equals [ !Ref Environment, prod ]
@@ -246,18 +262,37 @@ Resources:
         - Name: !Join [ "-" , [!Ref Environment, !Ref ApiServiceContainerName ]]
           Image: !Ref ApiServiceContainerImage
           MemoryReservation: !Ref ApiServiceMemory
+          Environment:
+            - Name: AWS_XRAY_DAEMON_ADDRESS
+              Value: !Sub "${Environment}-${XRayContainerName}:2000"
+            - Name: START_SLEEP
+              Value: 0
+            - Name: TOGGLE_HELLO
+              Value: toggle-hello
+            - Name: TOGGLE_SERVER_URL
+              Value: "http://localhost:4242/api"
           PortMappings:
             -
               ContainerPort: !Ref ApiServiceContainerPort
               Protocol: tcp
+          Links:
+            - !Join [ "-" , [!Ref Environment, !Ref XRayContainerName ]]
           LogConfiguration:
             LogDriver: awslogs
             Options:
               awslogs-region: !Ref AWS::Region
               awslogs-group: !Ref ApiServiceLogGroup
               awslogs-stream-prefix: !Ref EcsLogGroupPrefix
+        - Name: !Join [ "-" , [!Ref Environment, !Ref XRayContainerName ]]
+          Image: !Ref XRayServiceContainerImage
+          MemoryReservation: !Ref XRayServiceMemory
+          PortMappings:
+            -
+              HostPort: 0
+              ContainerPort: !Ref XRayServiceContainerPort
+              Protocol: udp
       Family: !Join [ "-" , [!Ref Environment, !Ref ApiServiceContainerName , "td"]]
-      Memory: !Ref ApiServiceMemory
+      Memory: 2304
       NetworkMode: bridge
       PidMode: task
   ApiServiceLogGroup:
@@ -305,7 +340,6 @@ Resources:
       HostedZoneId: !Ref HostedZone
       Name: !Join [ ".", [ "api" , !Ref BaseDnsName ]]
       Type: A
-  
   AlbListernerRuleForApi:
     Type: "AWS::ElasticLoadBalancingV2::ListenerRule"
     Properties:

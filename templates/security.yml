@@ -77,6 +77,8 @@ Resources:
             Service: [ec2.amazonaws.com]
           Action: ['sts:AssumeRole']
       Path: !Ref RolesPath
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess
       Policies:
       - PolicyName: !Join [ "-" , [!Ref Environment, !Ref Ec2PolicyName]]
         PolicyDocument:

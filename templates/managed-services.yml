@@ -12,15 +12,28 @@ Parameters:
     Type: String
     Default: "api"
     Description: "Api service repository name"
+  XRayServiceName: 
+    Type: String
+    Default: "xray"
+    Description: "Api service repository name"
 Resources: 
   ApiEcrRepository:
     Type: "AWS::ECR::Repository"
     Properties:
       RepositoryName: !Join [ "/" , [ !Ref BaseEcrRepositoryName , !Ref ApiServiceName ]]
-
+  XRayEcrRepository:
+    Type: "AWS::ECR::Repository"
+    Properties:
+      RepositoryName: !Join [ "/" , [ !Ref BaseEcrRepositoryName , !Ref XRayServiceName ]]
+  
 Outputs:
   ApiEcrRepositoryName:
     Description: "Api Ecr repository name"
     Value: !GetAtt ApiEcrRepository.Arn
     Export: 
       Name: API-ECR-REPOSITORY-NAME
+  XRayEcrRepositoryName:
+    Description: "Xray Daemon Ecr repository name"
+    Value: !GetAtt XRayEcrRepository.Arn
+    Export: 
+      Name: XRAY-ECR-REPOSITORY-NAME

@@ -95,14 +95,6 @@ Resources:
         HostedZone: !ImportValue PUBLIC-DNS-HOSTED-ZONE
         BaseDnsName: !ImportValue HOSTED-ZONE-NAME
       TemplateURL: !Join [ /, [ "https://s3.amazonaws.com", !Ref TemplatesBucket, "compute.yml" ] ]
-  ManagedServicesStack:
-    Type: "AWS::CloudFormation::Stack"
-    Properties:
-      Tags:
-        - 
-          Key: project
-          Value: !Ref ProjectName
-      TemplateURL: !Join [ /, [ "https://s3.amazonaws.com", !Ref TemplatesBucket, "managed-services.yml" ] ]
   ManagementStack:
     DependsOn: NetworkStack
     Condition: CreateManagement
@@ -141,11 +133,6 @@ Outputs:
     Value: !Ref SecurityStack
     Export:
       Name: SECURITY-STACK-ID
-  ManagedServicesStack:
-    Description: ARN of managed services nested Stack
-    Value: !Ref ManagedServicesStack
-    Export: 
-      Name: MANAGED-SERVICES-STACK
   ManagementStack:
     Description: ARN of management nested Stack
     Value: !Ref ManagementStack
