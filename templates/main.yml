@@ -78,6 +78,9 @@ Resources:
         -
           Key: environment
           Value: !Ref EnvironmentName
+        -
+          Key: auto-delete
+          Value: never
       Parameters:
         Environment: !Ref EnvironmentName
         VpcId: !GetAtt NetworkStack.Outputs.VpcHA
