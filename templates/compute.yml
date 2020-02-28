@@ -263,6 +263,8 @@ Resources:
           Image: !Ref ApiServiceContainerImage
           MemoryReservation: !Ref ApiServiceMemory
           Environment:
+            - Name: AWS_XRAY_SDK_ENABLED
+              Value: false
             - Name: AWS_XRAY_DAEMON_ADDRESS
               Value: !Sub "${Environment}-${XRayContainerName}:2000"
             - Name: START_SLEEP
@@ -286,6 +288,9 @@ Resources:
         - Name: !Join [ "-" , [!Ref Environment, !Ref XRayContainerName ]]
           Image: !Ref XRayServiceContainerImage
           MemoryReservation: !Ref XRayServiceMemory
+          Environment:
+            - Name: AWS_XRAY_SDK_ENABLED
+              Value: false
           PortMappings:
             -
               HostPort: 0
@@ -405,7 +410,7 @@ Resources:
       Tags:
         -
           Key: Name
-          Value: !Join [ "-" ,[ !Ref Environment, !Ref ContainerInstancesSecurityGroupName ]]     
+          Value: !Join [ "-" ,[ !Ref Environment, !Ref ContainerInstancesSecurityGroupName ]]
   ContainerInstancesLaunchConfig:
     Type: AWS::AutoScaling::LaunchConfiguration
     Properties:
