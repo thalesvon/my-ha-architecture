@@ -27,6 +27,8 @@ AlbHTTPListener:
 
 [x] BastionbBootstrap script to update bastion DNS on public hosted zone
 
+[ ] Launch jenkins on secondary account.
+
 [ ] Create AWS Config rules for s3 buckets with public access and ec2 instances with ssh open to internet.
 
 [ ] ApiService.Properties.DeploymentController.Type is configured to ECS right now but it is planned to implement blue/green deployment using type CODE_DEPLOY
