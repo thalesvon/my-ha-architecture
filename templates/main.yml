@@ -20,7 +20,7 @@ Parameters:
     ConstraintDescription: "must specified."
   MyPublicIp:
     Type: String
-    Default: "72.21.198.64/32"
+    Default: "0.0.0.0/0"
     Description: "My public ip to ssh to bastion host. CIDR notation" 
   CreateComputeValue: 
     Type: String
