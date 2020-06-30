@@ -87,7 +87,7 @@ Parameters:
     Type: String
   ApiServiceCount:
     Type: Number
-    Default: 3
+    Default: 1
     Description: Number of desired running tasks of ApiService
   ApiServiceContainerPort:
     Type: Number
@@ -127,10 +127,16 @@ Parameters:
     Type: String
     Default: "256"
     Description: The amount of memory used by task
-
+  Cert1:
+    Type: String
+    Default: arn:aws:acm:eu-west-1:358441290192:certificate/f4300af9-1fa3-4752-8e8c-f25916c0a1c3
+  Cert2:
+    Type: String
+    Default: arn:aws:acm:eu-west-1:358441290192:certificate/24cc0678-bd73-41be-91ab-1e7a5d04c92c
 Conditions:
   CreateProdResources: !Equals [ !Ref Environment, prod ]
-  CreateDevResources: !Equals [ !Ref Environment, dev ]
+  CreateDevResources: !Equals [ !Ref Environment, dev ] 
+  AddCerts: !Equals [ true, true ]
 
 Resources:
   AppLoadBalancer:
@@ -217,6 +223,22 @@ Resources:
       LoadBalancerArn: !Ref AppLoadBalancer
       Port: 443
       Protocol: HTTPS
+      SslPolicy: ELBSecurityPolicy-TLS-1-2-Ext-2018-06
+  OtherHTTPSCerts:
+    Type: "AWS::ElasticLoadBalancingV2::ListenerCertificate"
+    Properties:
+      Certificates: 
+        Fn::If:
+          - AddCerts
+          - 
+            - CertificateArn: !Ref SslCertificateArn
+            - CertificateArn: !Ref Cert1
+          - 
+            - CertificateArn: !Ref SslCertificateArn
+            - CertificateArn: !Ref Cert1
+            - CertificateArn: !Ref Cert2
+      ListenerArn: !Ref AlbHTTPSListener
+  
   EcsCluster:
     DependsOn: ApiServiceTaskDefinition
     Type: "AWS::ECS::Cluster"
@@ -229,7 +251,7 @@ Resources:
       Cluster: !Ref EcsCluster
       DeploymentConfiguration:
         MaximumPercent: 200
-        MinimumHealthyPercent: 100
+        MinimumHealthyPercent: 0
       DeploymentController:
         Type: ECS
       DesiredCount: !Ref ApiServiceCount
@@ -287,6 +309,8 @@ Resources:
           Environment:
             - Name: AWS_XRAY_SDK_ENABLED
               Value: false
+            - Name: AWS_REGION
+              Value: !Ref AWS::Region
           PortMappings:
             -
               HostPort: 0
