@@ -1,6 +1,6 @@
 # Nested Stack simple practice
 
-# Intrusctions
+# Instructions
 
 1 - Some resources are required to be unique, such as S3 Bucket and Route 53 hosted zone. In order to properly create stack change the variable `RAND` on `helper.sh` with an unique value. A random value can be generated with `openssl rand -hex 6`.
 
