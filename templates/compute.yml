@@ -43,10 +43,9 @@ Parameters:
     Type: String
     Default: "ecs"
     Description: "Prefix for Log Group"
-  KeyName:
+  EcsInstancesKey:
     Type: String
-    Description: KeyName
-    Default: 'key-ire'
+    Description: EcsInstancesKey
   ContainerInstancesSecurityGroupName:
     Type: String
     Default: ecs-instances-sg
@@ -117,7 +116,7 @@ Parameters:
     Default: xray-daemon
   XRayServiceContainerImage:
     Type: String
-    Default: 358441290192.dkr.ecr.eu-west-1.amazonaws.com/my-ha-architecture/xray:latest
+    Default: amazon/aws-xray-daemon:latest
     Description: Container Image, must be specified at stack creation
   XRayServiceContainerPort:
     Type: Number
@@ -127,16 +126,9 @@ Parameters:
     Type: String
     Default: "256"
     Description: The amount of memory used by task
-  Cert1:
-    Type: String
-    Default: arn:aws:acm:eu-west-1:358441290192:certificate/f4300af9-1fa3-4752-8e8c-f25916c0a1c3
-  Cert2:
-    Type: String
-    Default: arn:aws:acm:eu-west-1:358441290192:certificate/24cc0678-bd73-41be-91ab-1e7a5d04c92c
 Conditions:
   CreateProdResources: !Equals [ !Ref Environment, prod ]
   CreateDevResources: !Equals [ !Ref Environment, dev ] 
-  AddCerts: !Equals [ true, true ]
 
 Resources:
   AppLoadBalancer:
@@ -224,20 +216,6 @@ Resources:
       Port: 443
       Protocol: HTTPS
       SslPolicy: ELBSecurityPolicy-TLS-1-2-Ext-2018-06
-  OtherHTTPSCerts:
-    Type: "AWS::ElasticLoadBalancingV2::ListenerCertificate"
-    Properties:
-      Certificates: 
-        Fn::If:
-          - AddCerts
-          - 
-            - CertificateArn: !Ref SslCertificateArn
-            - CertificateArn: !Ref Cert1
-          - 
-            - CertificateArn: !Ref SslCertificateArn
-            - CertificateArn: !Ref Cert1
-            - CertificateArn: !Ref Cert2
-      ListenerArn: !Ref AlbHTTPSListener
   
   EcsCluster:
     DependsOn: ApiServiceTaskDefinition
@@ -433,7 +411,7 @@ Resources:
   ContainerInstancesLaunchConfig:
     Type: AWS::AutoScaling::LaunchConfiguration
     Properties:
-      KeyName: !Ref KeyName
+      KeyName: !Ref EcsInstancesKey
       SpotPrice: !Ref SpotPricePerDesiredCPUUnit
       ImageId: !Ref EcsAmi
       SecurityGroups: [!Ref 'ContainerInstancesSecurityGroup']

@@ -1,24 +1,22 @@
-# Notes for future implementations
+# Nested Stack simple practice
 
-For HTTP to HTTPS redirection on ALB port 80 listerner, use:
+# Intrusctions
 
-```yaml
-AlbHTTPListener:
-    Type: "AWS::ElasticLoadBalancingV2::Listener"
-    Properties:
-      DefaultActions:
-        - 
-          RedirectConfig:
-            Host: "#{host}"
-            Path: "/#{path}"
-            Port: 443
-            Protocol: "HTTPS"
-            Query: "#{query}"
-            StatusCode: HTTP_301
-          Type: redirect
-      LoadBalancerArn: !Ref AppLoadBalancer
-      Port: 80
-      Protocol: HTTP
+1 - Some resources are required to be unique, such as S3 Bucket and Route 53 hosted zone. In order to properly create stack change the variable `RAND` on `helper.sh` with an unique value. A random value can be generated with `openssl rand -hex 6`.
+
+3 - Create Ec2 key pairs for bastion and Ecs Container Instances:
+
+```bash
+export BASTION_KEY="BastionKey"
+export ECS_KEY="EcsInstancesKey"
+aws ec2 create-key-pair --key-name ${BASTION_KEY} --query "KeyMaterial" --output text > "${BASTION_KEY}".pem
+aws ec2 create-key-pair --key-name ${ECS_KEY} --query "KeyMaterial" --output text > "${ECS_KEY}".pem
+```
+2 - Once RAND is unique:
+
+```bash
+$ chmod +x ./helper.sh
+$ ./helper.sh
 ```
 
 # Next Steps
@@ -33,19 +31,15 @@ AlbHTTPListener:
 
 [ ] ApiService.Properties.DeploymentController.Type is configured to ECS right now but it is planned to implement blue/green deployment using type CODE_DEPLOY
 
-# To upload docker image
-
-```shell
-$(aws ecr get-login --no-include-email)
-docker tag hello 358441290192.dkr.ecr.eu-west-1.amazonaws.com/my-ha-architecture/api:latest
-docker push 358441290192.dkr.ecr.eu-west-1.amazonaws.com/my-ha-architecture/api:latest
-```
 
 # Resource created outside cloudformation
 
 - SSL Certificates requested direclty from console to avoid stack to be stuck in [CREATE_IN_PROGRESS][1]
 
 # TODO 
+
+- Diagram of what CFN builds
+
 
 
 [1]:https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-certificatemanager-certificate.html
